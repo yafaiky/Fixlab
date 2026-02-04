@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Service;
 use App\Models\ServiceItem;
+use App\Models\Customer;
+use App\Models\Media;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceController extends Controller
 {
@@ -12,16 +15,37 @@ class ServiceController extends Controller
     public function store(Request $request)
     {
         try {
+            // If customer_id is not provided, create a new customer
+            $customerId = $request->customer_id;
+            if (!$customerId) {
+                $request->validate([
+                    'name' => 'required|string',
+                    'phone' => 'required|string',
+                    'email' => 'nullable|email',
+                    'address' => 'required|string',
+                ]);
+
+                $memberID = $this->generateUniqueMemberID();
+
+                $customer = Customer::create([
+                    'memberID' => $memberID,
+                    'name' => $request->name,
+                    'phone' => $request->phone,
+                    'email' => $request->email,
+                    'address' => $request->address,
+                ]);
+                $customerId = $customer->id;
+            }
+
             $request->validate([
-                'customer_id' => 'required|exists:customers,id',
                 'Model' => 'required|string',
-                'IMEI' => 'required|string',
+                'IMEI' => 'nullable|string',
                 'Keluhan' => 'required|string',
                 'Kondisi' => 'required|string',
             ]);
 
             $service = Service::create([
-                'customer_id' => $request->customer_id,
+                'customer_id' => $customerId,
                 'Model' => $request->Model,
                 'IMEI' => $request->IMEI,
                 'Keluhan' => $request->Keluhan,
@@ -29,9 +53,20 @@ class ServiceController extends Controller
                 'serviceStatus' => 'OPEN',
             ]);
 
-            return response()->json($service->load('customer'), 201);
+            // Handle file uploads and signature
+            $this->handleMediaUploads($request, $service->id);
+
+            if (request()->wantsJson()) {
+                return response()->json($service->load('customer'), 201);
+            } else {
+                return redirect()->route('admin.dashboard')->with('success', 'Service berhasil dibuat!');
+            }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error createServiceByAdmin: '.$e->getMessage()], 500);
+            if (request()->wantsJson()) {
+                return response()->json(['error' => 'Error createServiceByAdmin: '.$e->getMessage()], 500);
+            } else {
+                return redirect()->back()->with('error', 'Gagal membuat service: ' . $e->getMessage())->withInput();
+            }
         }
     }
 
@@ -163,6 +198,58 @@ class ServiceController extends Controller
     {
         if ($value === null || $value === '') return '-';
         return 'Rp '.number_format($value, 0, ',', '.');
+    }
+
+    // Generate unique 8 digit memberID
+    private function generateUniqueMemberID()
+    {
+        do {
+            $memberID = strval(mt_rand(10000000, 99999999));
+        } while (Customer::where('memberID', $memberID)->exists());
+
+        return $memberID;
+    }
+
+    // Handle media uploads (photos and signature)
+    private function handleMediaUploads(Request $request, $serviceId)
+    {
+        $dokumentasiPaths = [];
+        $signaturePath = null;
+
+        // Handle dokumentasi photos
+        if ($request->hasFile('dokumentasi')) {
+            $files = $request->file('dokumentasi');
+            foreach ($files as $file) {
+                if ($file->isValid()) {
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('services/dokumentasi', $filename, 'public');
+                    $dokumentasiPaths[] = $path;
+                }
+            }
+        }
+
+        // Handle signature
+        if ($request->signature) {
+            // Decode base64 signature
+            $signatureData = $request->signature;
+            $signatureData = str_replace('data:image/png;base64,', '', $signatureData);
+            $signatureData = str_replace(' ', '+', $signatureData);
+            $signatureDecoded = base64_decode($signatureData);
+
+            // Save signature as PNG
+            $signatureFilename = 'signature_' . $serviceId . '_' . time() . '.png';
+            $signaturePath = 'services/signatures/' . $signatureFilename;
+            Storage::disk('public')->put($signaturePath, $signatureDecoded);
+        }
+
+        // Create media record
+        if (!empty($dokumentasiPaths) || $signaturePath) {
+            Media::create([
+                'service_id' => $serviceId,
+                'dokumentasi' => $dokumentasiPaths,
+                'signature' => $signaturePath,
+            ]);
+        }
     }
 
     private function parseDateFlexible($input)
