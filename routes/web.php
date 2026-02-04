@@ -20,12 +20,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin', function () {
             return view('admin.dashboard');
         })->name('admin.dashboard');
+        Route::get('/admin/service', function () {
+            return view('admin.service');
+        })->name('admin.service');
     });
 
     Route::middleware('role:technician')->group(function () {
         Route::get('/technician', function () {
-            return view('technician.dashboard');
-        })->name('technician.dashboard');
+            return view('teknisi.dashboard');
+        })->name('teknisi.dashboard');
+        Route::get('/teknisi/service', function () {
+            return view('teknisi.service');
+        })->name('teknisi.service');
     });
 });
 
