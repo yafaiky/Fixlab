@@ -37,6 +37,7 @@ class CustomerController extends Controller
                 'email' => $request->email,
                 'address' => $request->address,
             ]);
+            
 
             return response()->json($customer, 201);
         } catch (\Exception $e) {

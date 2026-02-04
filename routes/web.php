@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ServiceController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -20,9 +21,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin', function () {
             return view('admin.dashboard');
         })->name('admin.dashboard');
+
         Route::get('/admin/service', function () {
             return view('admin.service');
         })->name('admin.service');
+
+        Route::get('/admin/services/create', [ServiceController::class, 'create'])
+        ->name('admin.services.create');
+
+        Route::post('/admin/services', [ServiceController::class, 'store'])
+        ->name('admin.services.store');
     });
 
     Route::middleware('role:technician')->group(function () {

@@ -1,68 +1,72 @@
 <x-admin-layout>
-    <div class="container mx-auto p-4">
-        <h2 class="text-2xl font-bold mb-4">Create Service</h2>
+<div 
+    x-data="{ step: 1 }" 
+    class="max-w-3xl mx-auto bg-white p-6 rounded shadow"
+>
 
-        @if(session('success'))
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                {{ session('success') }}
-            </div>
-        @endif
+    <h1 class="text-2xl font-bold mb-6">Buat Service Baru</h1>
 
-        @if(session('error'))
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {{ session('error') }}
-            </div>
-        @endif
-
-        <form action="{{ route('admin.service.create') }}" method="POST" class="bg-white p-6 rounded-lg shadow-md">
-            @csrf
-
-            <div class="mb-4">
-                <label for="customer_id" class="block text-sm font-medium text-gray-700">Customer</label>
-                <select id="customer_id" name="customer_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
-                    <option value="">Select Customer</option>
-                    @foreach(\App\Models\Customer::all() as $customer)
-                        <option value="{{ $customer->id }}">{{ $customer->name }} ({{ $customer->phone }})</option>
-                    @endforeach
-                </select>
-                @error('customer_id')
-                    <p clas="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-4">
-                <label for="Model" class="block text-sm font-medium text-gray-700">Model</label>
-                <input type="text" id="Model" name="Model" value="{{ old('Model') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
-                @error('Model')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-4">
-                <label for="IMEI" class="block text-sm font-medium text-gray-700">IMEI</label>
-                <input type="text" id="IMEI" name="IMEI" value="{{ old('IMEI') }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
-                @error('IMEI')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-4">
-                <label for="Keluhan" class="block text-sm font-medium text-gray-700">Keluhan</label>
-                <textarea id="Keluhan" name="Keluhan" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>{{ old('Keluhan') }}</textarea>
-                @error('Keluhan')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-4">
-                <label for="Kondisi" class="block text-sm font-medium text-gray-700">Kondisi</label>
-                <textarea id="Kondisi" name="Kondisi" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>{{ old('Kondisi') }}</textarea>
-                @error('Kondisi')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Create Service</button>
-        </form>
+    {{-- STEP INDICATOR --}}
+    <div class="flex mb-6">
+        <div :class="step === 1 ? 'font-bold text-blue-600' : ''">1. Customer</div>
+        <span class="mx-3">→</span>
+        <div :class="step === 2 ? 'font-bold text-blue-600' : ''">2. Service</div>
     </div>
+
+    <form method="POST" action="{{ route('admin.services.store') }}">
+        @csrf
+
+        {{-- STEP 1 --}}
+        <div x-show="step === 1" x-transition>
+            <h2 class="text-xl font-semibold mb-4">Step 1: Data Customer</h2>
+
+            <div class="space-y-4">
+                <input name="name" placeholder="Nama Customer" class="w-full border p-2 rounded" required>
+                <input name="phone" placeholder="No HP" class="w-full border p-2 rounded" required>
+                <input name="email" placeholder="Email" class="w-full border p-2 rounded">
+                <textarea name="address" placeholder="Alamat" class="w-full border p-2 rounded" required></textarea>
+            </div>
+
+            <div class="mt-6 text-right">
+                <button
+                    type="button"
+                    @click="step = 2"
+                    class="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                    Lanjut →
+                </button>
+            </div>
+        </div>
+
+        {{-- STEP 2 --}}
+        <div x-show="step === 2" x-transition>
+            <h2 class="text-xl font-semibold mb-4">Step 2: Data Service</h2>
+            <input type="hidden" name="customer_id" value="{{ $customer->id ?? '' }}">
+
+            <div class="space-y-4">
+                <input name="Model" placeholder="Model Hardware" class="w-full border p-2 rounded" required>
+                <input name="IMEI" placeholder="IMEI" class="w-full border p-2 rounded">
+                <input name="Keluhan" placeholder="Keluhan" class="w-full border p-2 rounded" required>
+                <textarea name="Kondisi" placeholder="Kondisi" class="w-full border p-2 rounded" required></textarea>
+            </div>
+
+            <div class="mt-6 flex justify-between">
+                <button
+                    type="button"
+                    @click="step = 1"
+                    class="bg-gray-400 text-white px-4 py-2 rounded"
+                >
+                    ← Kembali
+                </button>
+
+                <button
+                    type="submit"
+                    class="bg-green-600 text-white px-4 py-2 rounded"
+                >
+                    Simpan Service
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
 </x-admin-layout>
