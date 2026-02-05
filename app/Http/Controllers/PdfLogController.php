@@ -15,7 +15,7 @@ class PdfLogController extends Controller
         try {
             $request->validate([
                 'service_id' => 'required|exists:services,id',
-                'type' => 'required|in:CREATE,UPDATE,INVOICE',
+                'type'       => 'required|in:CREATE,UPDATE,INVOICE',
             ]);
 
             $service = Service::with(['customer','media','items'])->find($request->service_id);
@@ -24,52 +24,52 @@ class PdfLogController extends Controller
                 return response()->json(['error' => 'Service not found'], 404);
             }
 
-            // Tentukan nama file
+            // 🔹 Nama file & path
             $pdfFileName = "service-{$service->id}-{$request->type}.pdf";
-            $pdfPath = "uploads/{$pdfFileName}";
+            $pdfPath     = "public/uploads/{$pdfFileName}";
 
-            // Hitung total harga
+            // 🔹 Hitung total harga
             $totalBarang = $service->items->sum('hargaBarang');
-            $hargaJasa = $service->hargaJasa ?? 0;
-            $totalHarga = $totalBarang + $hargaJasa;
+            $hargaJasa   = $service->hargaJasa ?? 0;
+            $totalHarga  = $totalBarang + $hargaJasa;
 
-            // Barang list untuk template
+            // 🔹 Barang list untuk template
             $barangList = $service->items->map(function($item, $index) {
                 return [
-                    'no' => $index + 1,
-                    'nama' => $item->judulBarang ?? '-',
+                    'no'    => $index + 1,
+                    'nama'  => $item->judulBarang ?? '-',
                     'harga' => $this->formatRupiah($item->hargaBarang ?? 0),
                 ];
             });
 
-            // Generate PDF pakai DomPDF
+            // 🔹 Generate PDF pakai DomPDF
             $pdf = Pdf::loadView('pdf.'.$this->getTemplateName($request->type), [
-                'service' => $service,
-                'customer' => $service->customer,
-                'barangList' => $barangList,
+                'service'            => $service,
+                'customer'           => $service->customer,
+                'barangList'         => $barangList,
                 'hargaJasaFormatted' => $this->formatRupiah($hargaJasa),
-                'totalFormatted' => $this->formatRupiah($totalHarga),
+                'totalFormatted'     => $this->formatRupiah($totalHarga),
             ]);
 
             Storage::put($pdfPath, $pdf->output());
 
-            // Simpan log ke tabel PdfLog
+            // 🔹 Simpan log ke tabel PdfLog
             $log = PdfLog::create([
-                'service_id' => $service->id,
+                'service_id'  => $service->id,
                 'customer_id' => $service->customer_id,
-                'type' => $request->type,
-                'sent' => false,
-                'sentAt' => null,
-                'errorMsg' => null,
-                'filePath' => $pdfFileName,
+                'type'        => $request->type,
+                'sent'        => false,
+                'sentAt'      => null,
+                'errorMsg'    => null,
+                'filePath'    => $pdfFileName,
             ]);
 
             return response()->json([
-                'ok' => true,
-                'message' => 'PDF berhasil dibuat',
-                'total' => $totalHarga,
-                'fileUrl' => url($pdfPath),
-                'log' => $log,
+                'ok'      => true,
+                'message' => "PDF {$request->type} berhasil dibuat",
+                'total'   => $totalHarga,
+                'fileUrl' => Storage::url("uploads/{$pdfFileName}"),
+                'log'     => $log,
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => '❌ sendServicePdf error: '.$e->getMessage()], 500);
@@ -84,8 +84,11 @@ class PdfLogController extends Controller
 
     private function getTemplateName($type)
     {
-        if ($type === 'CREATE') return 'create';
-        if ($type === 'UPDATE') return 'update';
-        return 'invoice';
+        switch ($type) {
+            case 'CREATE': return 'create';
+            case 'UPDATE': return 'update';
+            case 'INVOICE': return 'invoice';
+            default: throw new \Exception("Invalid PDF type");
+        }
     }
 }

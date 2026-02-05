@@ -53,6 +53,14 @@ class ServiceController extends Controller
                 'serviceStatus' => 'OPEN',
             ]);
 
+            // 🔹 Trigger PDF CREATE
+            app(\App\Http\Controllers\PdfLogController::class)
+                ->sendServicePdf(new Request([
+                    'service_id' => $service->id,
+                    'type' => 'CREATE',
+                ]));
+
+            return response()->json($service->load('customer'), 201);
             // Handle file uploads and signature
             $this->handleMediaUploads($request, $service->id);
 
@@ -73,17 +81,9 @@ class ServiceController extends Controller
     // 🧩 Get Service by ID
     public function show($id)
     {
-        try {
-            $service = Service::with(['customer','media','items'])->find($id);
+         $service = Service::with(['customer','media','items'])->findOrFail($id);
 
-            if (!$service) {
-                return response()->json(['error' => 'Service not found'], 404);
-            }
-
-            return response()->json($service);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return view('admin.show', compact('service'));
     }
 
     // 🧩 Update Service (Admin / Technician)
@@ -142,6 +142,23 @@ class ServiceController extends Controller
                     return response()->json(['error' => 'Invalid serviceStatus'], 400);
                 }
                 $service->update(['serviceStatus' => $request->serviceStatus]);
+
+                // 🔹 Integrasi PDF sesuai flow FE React
+                if ($request->serviceStatus === 'SOLVED') {
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->sendServicePdf(new Request([
+                            'service_id' => $service->id,
+                            'type' => 'UPDATE',
+                        ]));
+                }
+
+                if ($request->serviceStatus === 'WARRANTY') {
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->sendServicePdf(new Request([
+                            'service_id' => $service->id,
+                            'type' => 'INVOICE',
+                        ]));
+                }
             }
 
             // reload relasi
@@ -169,6 +186,13 @@ class ServiceController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error updateService: '.$e->getMessage()], 500);
         }
+    }
+
+    public function edit($id)
+    {
+        $service = Service::with(['customer','media','items'])->findOrFail($id);
+
+        return view('admin.update-service', compact('service'));
     }
 
     // 🧩 Get Services (optional filter by status)
