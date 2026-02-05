@@ -35,7 +35,7 @@
                @click="sidebarOpen = false"
                class="block rounded px-3 py-2
                {{ request()->routeIs('admin.service') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
-              ⚙️ Service
+               Service
             </a>
         </nav>
     </aside>
@@ -63,7 +63,7 @@
             </button>
 
          <h1 class="text-xl font-bold">
-            ⛨ Admin <span class="text-blue-600">CENTRAL</span>
+             Admin <span class="text-blue-600">Dashboard</span>
          </h1>
 
             <!-- Logout -->
