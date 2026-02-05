@@ -19,7 +19,7 @@ class MediaController extends Controller
                 'file_name'   => $media->file_name,
                 'mime_type'   => $media->mime_type,
                 'size'        => $media->size,
-                'url'         => $media->getUrl(), // otomatis ke public/storage
+                'url'         => $media->getUrl(),
                 'collection'  => $media->collection_name,
             ];
         });
@@ -32,25 +32,27 @@ class MediaController extends Controller
     {
         $request->validate([
             'service_id'    => 'required|exists:services,id',
-            'signature'     => 'required|file|mimes:jpg,png,pdf|max:2048',
-            'dokumentasi.*' => 'file|mimes:jpg,png,pdf|max:4096',
-            'hasil.*'       => 'file|mimes:jpg,png,pdf|max:4096',
+            'signature'     => 'nullable|file|mimes:jpg,png,pdf|max:2048',
+            'dokumentasi.*' => 'nullable|file|mimes:jpg,png,pdf|max:4096',
+            'hasil.*'       => 'nullable|file|mimes:jpg,png,pdf|max:4096',
         ]);
 
         $service = Service::findOrFail($request->service_id);
 
-        // Signature
-        $service->addMedia($request->file('signature'))
-                ->toMediaCollection('signature');
+        // Signature (opsional)
+        if ($request->hasFile('signature')) {
+            $service->addMedia($request->file('signature'))
+                    ->toMediaCollection('signature');
+        }
 
-        // Dokumentasi
+        // Dokumentasi (opsional)
         if ($request->hasFile('dokumentasi')) {
             foreach ($request->file('dokumentasi') as $file) {
                 $service->addMedia($file)->toMediaCollection('dokumentasi');
             }
         }
 
-        // Hasil
+        // Hasil (opsional, dipakai saat SOLVED)
         if ($request->hasFile('hasil')) {
             foreach ($request->file('hasil') as $file) {
                 $service->addMedia($file)->toMediaCollection('hasil');

@@ -29,6 +29,13 @@ class ServiceController extends Controller
                 'serviceStatus' => 'OPEN',
             ]);
 
+            // 🔹 Trigger PDF CREATE
+            app(\App\Http\Controllers\PdfLogController::class)
+                ->sendServicePdf(new Request([
+                    'service_id' => $service->id,
+                    'type' => 'CREATE',
+                ]));
+
             return response()->json($service->load('customer'), 201);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error createServiceByAdmin: '.$e->getMessage()], 500);
@@ -107,6 +114,23 @@ class ServiceController extends Controller
                     return response()->json(['error' => 'Invalid serviceStatus'], 400);
                 }
                 $service->update(['serviceStatus' => $request->serviceStatus]);
+
+                // 🔹 Integrasi PDF sesuai flow FE React
+                if ($request->serviceStatus === 'SOLVED') {
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->sendServicePdf(new Request([
+                            'service_id' => $service->id,
+                            'type' => 'UPDATE',
+                        ]));
+                }
+
+                if ($request->serviceStatus === 'WARRANTY') {
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->sendServicePdf(new Request([
+                            'service_id' => $service->id,
+                            'type' => 'INVOICE',
+                        ]));
+                }
             }
 
             // reload relasi

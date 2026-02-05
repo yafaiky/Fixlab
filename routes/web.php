@@ -26,7 +26,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin', function () {
             return view('admin.dashboard');
         })->name('admin.dashboard');
-
+        
         // Service management (admin full access)
         Route::post('/services', [ServiceController::class, 'store'])->name('services.store');
         Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
@@ -62,4 +62,4 @@ Route::middleware('auth')->group(function () {
     Route::post('/pdf/send', [PdfLogController::class, 'sendServicePdf'])->name('pdf.send');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

@@ -24,16 +24,16 @@ class PdfLogController extends Controller
                 return response()->json(['error' => 'Service not found'], 404);
             }
 
-            // Tentukan nama file & path
+            // 🔹 Nama file & path
             $pdfFileName = "service-{$service->id}-{$request->type}.pdf";
             $pdfPath     = "public/uploads/{$pdfFileName}";
 
-            // Hitung total harga
+            // 🔹 Hitung total harga
             $totalBarang = $service->items->sum('hargaBarang');
             $hargaJasa   = $service->hargaJasa ?? 0;
             $totalHarga  = $totalBarang + $hargaJasa;
 
-            // Barang list untuk template
+            // 🔹 Barang list untuk template
             $barangList = $service->items->map(function($item, $index) {
                 return [
                     'no'    => $index + 1,
@@ -42,18 +42,18 @@ class PdfLogController extends Controller
                 ];
             });
 
-            // Generate PDF pakai DomPDF
+            // 🔹 Generate PDF pakai DomPDF
             $pdf = Pdf::loadView('pdf.'.$this->getTemplateName($request->type), [
-                'service'           => $service,
-                'customer'          => $service->customer,
-                'barangList'        => $barangList,
-                'hargaJasaFormatted'=> $this->formatRupiah($hargaJasa),
-                'totalFormatted'    => $this->formatRupiah($totalHarga),
+                'service'            => $service,
+                'customer'           => $service->customer,
+                'barangList'         => $barangList,
+                'hargaJasaFormatted' => $this->formatRupiah($hargaJasa),
+                'totalFormatted'     => $this->formatRupiah($totalHarga),
             ]);
 
             Storage::put($pdfPath, $pdf->output());
 
-            // Simpan log ke tabel PdfLog
+            // 🔹 Simpan log ke tabel PdfLog
             $log = PdfLog::create([
                 'service_id'  => $service->id,
                 'customer_id' => $service->customer_id,
@@ -66,7 +66,7 @@ class PdfLogController extends Controller
 
             return response()->json([
                 'ok'      => true,
-                'message' => 'PDF berhasil dibuat',
+                'message' => "PDF {$request->type} berhasil dibuat",
                 'total'   => $totalHarga,
                 'fileUrl' => Storage::url("uploads/{$pdfFileName}"),
                 'log'     => $log,
@@ -84,8 +84,11 @@ class PdfLogController extends Controller
 
     private function getTemplateName($type)
     {
-        if ($type === 'CREATE') return 'create';
-        if ($type === 'UPDATE') return 'update';
-        return 'invoice';
+        switch ($type) {
+            case 'CREATE': return 'create';
+            case 'UPDATE': return 'update';
+            case 'INVOICE': return 'invoice';
+            default: throw new \Exception("Invalid PDF type");
+        }
     }
 }
