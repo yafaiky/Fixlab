@@ -28,14 +28,14 @@
                @click="sidebarOpen = false"
                class="block rounded px-3 py-2
                {{ request()->routeIs('admin.dashboard') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
-                Dashboard
+               ⿻ Dashboard
             </a>
 
             <a href="{{ route('admin.service') }}"
                @click="sidebarOpen = false"
                class="block rounded px-3 py-2
                {{ request()->routeIs('admin.service') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
-                Service
+              ⚙️ Service
             </a>
         </nav>
     </aside>
@@ -62,7 +62,9 @@
                 </svg>
             </button>
 
-            <h1 class="text-xl font-bold">Admin Dashboard</h1>
+         <h1 class="text-xl font-bold">
+            ⛨ Admin <span class="text-blue-600">CENTRAL</span>
+         </h1>
 
             <!-- Logout -->
             <form method="POST" action="{{ route('logout') }}"
