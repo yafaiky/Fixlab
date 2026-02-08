@@ -1,6 +1,6 @@
-<x-admin-layout>
+<x-teknisi-layout>
     <div class="p-4 md:p-6">
-        <h1 class="text-lg font-semibold mb-5 text-gray-900">Admin Dashboard</h1>
+        <h1 class="text-lg font-semibold mb-5 text-gray-900">Teknisi Dashboard</h1>
 
         @php
             // 1. Data Filter
@@ -13,7 +13,7 @@
             {{-- Filter Section --}}
             <div class="flex flex-wrap gap-2">
                 @foreach ($filters as $filter)
-                    <a href="{{ route('admin.dashboard', ['status' => $filter, 'search' => $search]) }}"
+                    <a href="{{ route('teknisi.dashboard', ['status' => $filter, 'search' => $search]) }}"
                         class="px-4 py-1.5 rounded-md text-xs font-medium transition-all duration-200
                        {{ $currentFilter === $filter
                            ? 'bg-blue-600 text-white shadow-sm'
@@ -24,7 +24,7 @@
             </div>
 
             {{-- Search Section --}}
-            <form id="searchForm" method="GET" action="{{ route('admin.dashboard') }}" class="flex items-center gap-2">
+            <form id="searchForm" method="GET" action="{{ route('teknisi.dashboard') }}" class="flex items-center gap-2">
                 {{-- Hidden input agar status filter tidak hilang saat search --}}
                 <input type="hidden" name="status" value="{{ $currentFilter }}">
 
@@ -119,66 +119,65 @@
 
                             {{-- Footer Card - Action Buttons --}}
                             <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex gap-2">
-
-                                {{-- Lihat Detail --}}
-                                <a href="{{ route('admin.show', $service->id) }}"
+                                <a href="{{ route('teknisi.show', $service->id) }}"
                                     class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7
-                -1.274 4.057-5.064 7-9.542 7
-                -4.477 0-8.268-2.943-9.542-7z" />
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                        </path>
                                     </svg>
                                     Lihat Detail
                                 </a>
 
-                                {{-- STATUS: WARRANTY --}}
+                                @php
+                                    $isLocked = in_array($service->serviceStatus, ['WARRANTY', 'DONE', 'CANCELLED']);
+                                @endphp
+
                                 @if ($service->serviceStatus === 'WARRANTY')
                                     <form action="{{ route('service.finishWarranty', $service->id) }}" method="POST"
-                                        class="flex-1 finish-warranty-form">
+                                        onsubmit="return confirm('Yakin ingin menyelesaikan masa garansi?')"
+                                        class="inline">
                                         @csrf
-                                        <button type="button" onclick="confirmFinishWarranty(this)"
-                                            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-md hover:bg-green-700 transition">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        <button type="submit"
+                                            class="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 transition">
+                                            <!-- Icon -->
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
                                                     d="M5 13l4 4L19 7" />
                                             </svg>
                                             Selesai Garansi
                                         </button>
                                     </form>
+                                @endif
 
-                                    {{-- STATUS: DONE / CANCELLED --}}
-                                @elseif (in_array($service->serviceStatus, ['DONE', 'CANCELLED']))
+
+                                @if ($isLocked)
                                     <button disabled
-                                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-300 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed">
+                                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-300 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed opacity-60">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6
-                    a2 2 0 00-2-2H6a2 2 0 00-2 2v6
-                    a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                            </path>
                                         </svg>
                                         Terkunci
                                     </button>
-
-                                    {{-- STATUS LAINNYA --}}
                                 @else
-                                    <a href="{{ route('admin.update-service', $service->id) }}"
+                                    <a href="{{ route('teknisi.update-service', $service->id) }}"
                                         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2
-                    A8.001 8.001 0 004.582 9
-                    m0 0H9m11 11v-5h-.581
-                    m0 0a8.003 8.003 0 01-15.357-2
-                    m15.357 2H15" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                            </path>
                                         </svg>
                                         Update Status
                                     </a>
                                 @endif
                             </div>
-
                         </div>
                     @endforeach
                 </div>
@@ -219,34 +218,6 @@
         searchInput.value = '';
         searchInput.value = val;
         searchInput.focus();
-
-        function confirmFinishWarranty(button) {
-        const form = button.closest('form');
-
-        Swal.fire({
-            title: 'Selesaikan Garansi?',
-            text: 'Status akan berubah menjadi DONE dan tidak bisa dikembalikan.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#16a34a', // green-600
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Ya, Selesaikan',
-            cancelButtonText: 'Batal'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Diproses...',
-                    text: 'Mohon tunggu sebentar',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading()
-                    }
-                });
-
-                form.submit();
-            }
-        });
-    }
     </script>
 
-</x-admin-layout>
+</x-teknisi-layout>
