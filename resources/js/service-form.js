@@ -56,7 +56,7 @@ function previewImages(input) {
 
             const img = document.createElement('img');
             img.src = e.target.result;
-            img.className = 'w-full h-32 object-cover rounded border';
+            img.className = 'w-full h-40 object-cover rounded border';
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';

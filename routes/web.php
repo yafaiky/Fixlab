@@ -2,34 +2,40 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\PdfLogController;
 
 Route::get('/', function () {
-    // Jika user sudah login dan role admin, arahkan ke admin dashboard
-    if (Auth::check() && Auth::user()->role === 'admin') {
-        return redirect()->route('admin.dashboard');
+    if (Auth::check()) {
+        return match (Auth::user()->role->value) {
+            'admin'      => redirect()->route('admin.dashboard'),
+            'technician' => redirect()->route('teknisi.dashboard'),
+            default      => redirect()->route('login'),
+        };
     }
-
-    // Jika user sudah login dan role technician, arahkan ke technician dashboard
-    if (Auth::check() && Auth::user()->role === 'technician') {
-        return redirect()->route('teknisi.dashboard');
-    }
-
-    // Jika belum login, tampilkan welcome page
     return view('auth.login');
 })->name('home');
 
 Route::middleware('auth')->group(function () {
-    // 🔹 Profile routes
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/dashboard', function () {
+        return match (Auth::user()->role->value) {
+            'admin'      => redirect()->route('admin.dashboard'),
+            'technician' => redirect()->route('teknisi.dashboard'),
+            default      => abort(403),
+        };
+    })->name('dashboard');
+
+    Route::get('/admin', function () {
+        return match (Auth::user()->role->value) {
+            'admin'      => redirect()->route('admin.dashboard'),
+            'technician' => redirect()->route('teknisi.dashboard'),
+            default      => abort(403),
+        };
+    })->name('admin.index');
 
     // 🔹 Admin routes
     Route::middleware('role:admin')->group(function () {
-        Route::get('/admin', function () {
+        Route::get('/admin/dashboard', function () {
             $status = request('status');
             $search = request('search');
 
@@ -51,7 +57,7 @@ Route::middleware('auth')->group(function () {
                     ->orWhere('Keluhan', 'like', '%' . $search . '%');
             }
 
-            $services = $query->paginate(10); // 10 items per page
+            $services = $query->paginate(9);
 
             return view('admin.dashboard', compact('services'));
         })->name('admin.dashboard');
@@ -70,12 +76,11 @@ Route::middleware('auth')->group(function () {
             ->name('admin.update-service');
 
         Route::patch('/admin/services/{id}', [ServiceController::class, 'updateAdmin'])->name('admin.update');
-
     });
 
     // 🔹 Technician routes
     Route::middleware('role:technician')->group(function () {
-        Route::get('/teknisi', function () {
+        Route::get('/teknisi/dashboard', function () {
             $status = request('status');
             $search = request('search');
 
@@ -97,7 +102,7 @@ Route::middleware('auth')->group(function () {
                     ->orWhere('Keluhan', 'like', '%' . $search . '%');
             }
 
-            $services = $query->paginate(10); // 10 items per page
+            $services = $query->paginate(9);
 
             return view('teknisi.dashboard', compact('services'));
         })->name('teknisi.dashboard');
@@ -116,8 +121,8 @@ Route::middleware('auth')->group(function () {
         ->name('service.generate.pdf');
 
     // 🔹 Finish Warranty Route
-     Route::post('/service/{id}/finish-warranty', [ServiceController::class, 'finishWarranty'])
-            ->name('service.finishWarranty');
+    Route::post('/service/{id}/finish-warranty', [ServiceController::class, 'finishWarranty'])
+        ->name('service.finishWarranty');
 });
 
 require __DIR__ . '/auth.php';
