@@ -1,19 +1,25 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
-use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PdfLogController;
-use App\Http\Controllers\CustomerController;
 
 Route::get('/', function () {
-    return view('welcome');
-});
+    // Jika user sudah login dan role admin, arahkan ke admin dashboard
+    if (Auth::check() && Auth::user()->role === 'admin') {
+        return redirect()->route('admin.dashboard');
+    }
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+    // Jika user sudah login dan role technician, arahkan ke technician dashboard
+    if (Auth::check() && Auth::user()->role === 'technician') {
+        return redirect()->route('teknisi.dashboard');
+    }
+
+    // Jika belum login, tampilkan welcome page
+    return view('auth.login');
+})->name('home');
 
 Route::middleware('auth')->group(function () {
     // 🔹 Profile routes
@@ -27,71 +33,91 @@ Route::middleware('auth')->group(function () {
             $status = request('status');
             $search = request('search');
 
-            $query = \App\Models\Service::with(['customer','media','items'])->orderBy('created_at','desc');
+            $query = \App\Models\Service::with(['customer', 'media', 'items'])->orderBy('created_at', 'desc');
 
             if ($status && $status !== 'All') {
-                $valid = ['OPEN','PROGRESS','SOLVED','WARRANTY','DONE','CANCELLED'];
+                $valid = ['OPEN', 'PROGRESS', 'SOLVED', 'WARRANTY', 'DONE', 'CANCELLED'];
                 if (in_array($status, $valid)) {
                     $query->where('serviceStatus', $status);
                 }
             }
 
             if ($search) {
-                $query->whereHas('customer', function($q) use ($search) {
+                $query->whereHas('customer', function ($q) use ($search) {
                     $q->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('phone', 'like', '%' . $search . '%')
-                      ->orWhere('email', 'like', '%' . $search . '%');
+                        ->orWhere('phone', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
                 })->orWhere('Model', 'like', '%' . $search . '%')
-                  ->orWhere('Keluhan', 'like', '%' . $search . '%');
+                    ->orWhere('Keluhan', 'like', '%' . $search . '%');
             }
 
-            $services = $query->paginate(12); // 12 cards per page
+            $services = $query->paginate(10); // 10 items per page
 
             return view('admin.dashboard', compact('services'));
         })->name('admin.dashboard');
 
-         Route::get('/admin/service', function () {
+        Route::get('/admin/service', function () {
             return view('admin.service');
         })->name('admin.service');
-        
-        // Service management (admin full access)
-
-        Route::get('/admin/services/create', [ServiceController::class, 'create'])
-        ->name('admin.services.create');
 
         Route::post('/admin/services', [ServiceController::class, 'store'])
-        ->name('admin.services.store');
+            ->name('admin.services.store');
 
-        Route::get('/admin/services/{id}', [ServiceController::class, 'show'])
-        ->name('admin.show');
+        Route::get('/admin/services/{id}', [ServiceController::class, 'showAdmin'])
+            ->name('admin.show');
 
-        Route::get('/admin/services/{id}/edit', [ServiceController::class, 'edit'])
-        ->name('admin.update-service');
+        Route::get('/admin/services/{id}/edit', [ServiceController::class, 'editAdmin'])
+            ->name('admin.update-service');
 
-        Route::patch('/admin/services/{id}', [ServiceController::class, 'update'])->name('admin.update-service');
+        Route::patch('/admin/services/{id}', [ServiceController::class, 'updateAdmin'])->name('admin.update');
 
     });
 
     // 🔹 Technician routes
     Route::middleware('role:technician')->group(function () {
-        Route::get('/technician', function () {
-            return view('technician.dashboard');
-        })->name('technician.dashboard');
+        Route::get('/teknisi', function () {
+            $status = request('status');
+            $search = request('search');
 
-        // Service (technician only update)
-        Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
-        Route::get('/services/{id}', [ServiceController::class, 'show'])->name('services.show');
-        Route::patch('/services/{id}', [ServiceController::class, 'update'])->name('services.update');
+            $query = \App\Models\Service::with(['customer', 'media', 'items'])->orderBy('created_at', 'desc');
 
-        // Media management
-        Route::get('/media/{serviceId}', [MediaController::class, 'index'])->name('media.index');
-        Route::post('/media', [MediaController::class, 'store'])->name('media.store');
-        Route::patch('/media/{serviceId}/{mediaId}', [MediaController::class, 'update'])->name('media.update');
-        Route::delete('/media/{serviceId}/{mediaId}', [MediaController::class, 'destroy'])->name('media.destroy');
+            if ($status && $status !== 'All') {
+                $valid = ['OPEN', 'PROGRESS', 'SOLVED', 'WARRANTY', 'DONE', 'CANCELLED'];
+                if (in_array($status, $valid)) {
+                    $query->where('serviceStatus', $status);
+                }
+            }
+
+            if ($search) {
+                $query->whereHas('customer', function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('phone', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                })->orWhere('Model', 'like', '%' . $search . '%')
+                    ->orWhere('Keluhan', 'like', '%' . $search . '%');
+            }
+
+            $services = $query->paginate(10); // 10 items per page
+
+            return view('teknisi.dashboard', compact('services'));
+        })->name('teknisi.dashboard');
+
+        Route::get('/teknisi/services/{id}', [ServiceController::class, 'teknisiShow'])
+            ->name('teknisi.show');
+
+        Route::get('/teknisi/services/{id}/edit', [ServiceController::class, 'teknisiEdit'])
+            ->name('teknisi.update-service');
+
+        Route::patch('/teknisi/services/{id}', [ServiceController::class, 'updateTeknisi'])->name('teknisi.update');
     });
 
-    // 🔹 PDF log (dipanggil otomatis di backend, route ini opsional)
-    Route::post('/pdf/send', [pdfLogController::class, 'sendServicePdf'])->name('pdf.send');
+    // 🔹 PDF Generate & Download (untuk admin dan teknician)
+    Route::get('/service/{id}/pdf/{type}', [PdfLogController::class, 'generateAndDownloadPdf'])
+        ->name('service.generate.pdf');
+
+    // 🔹 Finish Warranty Route
+     Route::post('/service/{id}/finish-warranty', [ServiceController::class, 'finishWarranty'])
+            ->name('service.finishWarranty');
 });
 
 require __DIR__ . '/auth.php';

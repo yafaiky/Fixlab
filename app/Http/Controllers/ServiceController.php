@@ -12,91 +12,106 @@ use Illuminate\Support\Facades\Storage;
 class ServiceController extends Controller
 {
     // 🧩 Create Service by Admin
+
     public function store(Request $request)
     {
         try {
-            // If customer_id is not provided, create a new customer
+
             $customerId = $request->customer_id;
+
             if (!$customerId) {
                 $request->validate([
-                    'name' => 'required|string',
-                    'phone' => 'required|string',
-                    'email' => 'nullable|email',
+                    'name'    => 'required|string',
+                    'phone'   => 'required|string',
+                    'email'   => 'nullable|email',
                     'address' => 'required|string',
                 ]);
 
-                $memberID = $this->generateUniqueMemberID();
-
                 $customer = Customer::create([
-                    'memberID' => $memberID,
-                    'name' => $request->name,
-                    'phone' => $request->phone,
-                    'email' => $request->email,
-                    'address' => $request->address,
+                    'memberID' => $this->generateUniqueMemberID(),
+                    'name'     => $request->name,
+                    'phone'    => $request->phone,
+                    'email'    => $request->email,
+                    'address'  => $request->address,
                 ]);
+
                 $customerId = $customer->id;
             }
 
             $request->validate([
-                'Model' => 'required|string',
-                'IMEI' => 'nullable|string',
+                'Model'   => 'required|string',
+                'IMEI'    => 'nullable|string',
                 'Keluhan' => 'required|string',
                 'Kondisi' => 'required|string',
             ]);
 
             $service = Service::create([
-                'customer_id' => $customerId,
-                'Model' => $request->Model,
-                'IMEI' => $request->IMEI,
-                'Keluhan' => $request->Keluhan,
-                'Kondisi' => $request->Kondisi,
+                'customer_id'  => $customerId,
+                'Model'        => $request->Model,
+                'IMEI'         => $request->IMEI,
+                'Keluhan'      => $request->Keluhan,
+                'Kondisi'      => $request->Kondisi,
                 'serviceStatus' => 'OPEN',
             ]);
 
-            // 🔹 Trigger PDF CREATE
-            app(\App\Http\Controllers\PdfLogController::class)
-                ->sendServicePdf(new Request([
-                    'service_id' => $service->id,
-                    'type' => 'CREATE',
-                ]));
-
-            return response()->json($service->load('customer'), 201);
-            // Handle file uploads and signature
             $this->handleMediaUploads($request, $service->id);
 
-            if (request()->wantsJson()) {
-                return response()->json($service->load('customer'), 201);
-            } else {
-                return redirect()->route('admin.dashboard')->with('success', 'Service berhasil dibuat!');
+            // Generate PDF CREATE
+            app(\App\Http\Controllers\PdfLogController::class)
+                ->generatePdf($service->id, 'CREATE');
+
+            if ($request->wantsJson()) {
+                return response()->json(
+                    $service->load('customer'),
+                    201
+                );
             }
+
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('success', 'Service berhasil dibuat!');
         } catch (\Exception $e) {
-            if (request()->wantsJson()) {
-                return response()->json(['error' => 'Error createServiceByAdmin: '.$e->getMessage()], 500);
-            } else {
-                return redirect()->back()->with('error', 'Gagal membuat service: ' . $e->getMessage())->withInput();
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'error' => $e->getMessage()
+                ], 500);
             }
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Gagal membuat service: ' . $e->getMessage());
         }
     }
 
-    // 🧩 Get Service by ID
-    public function show($id)
+    // 🧩 Get Service by admin
+    public function showAdmin($id)
     {
-         $service = Service::with(['customer','media','items'])->findOrFail($id);
+        $service = Service::with(['customer', 'media', 'items'])->findOrFail($id);
 
         return view('admin.show', compact('service'));
     }
 
-    // 🧩 Update Service (Admin / Technician)
-    public function update(Request $request, $id)
+    // 🧩 Get Service by teknisi
+    function teknisiShow($id)
+    {
+        $service = Service::with(['customer', 'media', 'items'])->findOrFail($id);
+
+        return view('teknisi.show', compact('service'));
+    }
+
+    // 🧩 Update Service (Admin)
+    public function updateAdmin(Request $request, $id)
     {
         try {
-            $service = Service::with(['customer','items'])->find($id);
+            $service = Service::with(['customer', 'items'])->find($id);
 
             if (!$service) {
                 return response()->json(['error' => 'Service tidak ditemukan'], 404);
             }
 
-            if (in_array($service->serviceStatus, ['DONE','CANCELLED'])) {
+            if (in_array($service->serviceStatus, ['DONE', 'CANCELLED'])) {
                 return response()->json(['error' => 'Service sudah selesai / dibatalkan, tidak bisa diupdate.'], 400);
             }
 
@@ -120,6 +135,8 @@ class ServiceController extends Controller
                 ServiceItem::where('service_id', $id)->delete();
 
                 foreach ($request->barangList as $item) {
+                    if (!isset($item['judulBarang'])) continue;
+
                     ServiceItem::create([
                         'service_id' => $id,
                         'judulBarang' => $item['judulBarang'],
@@ -134,10 +151,40 @@ class ServiceController extends Controller
 
             $total = $totalBarang + ($service->hargaJasa ?? 0);
             $service->update(['total' => $total]);
+            if ($request->hasFile('hasil')) {
+                $hasilPaths = [];
+                $files = $request->file('hasil');
+
+                foreach ($files as $file) {
+                    if ($file->isValid()) {
+                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $path = $file->storeAs('services/hasil', $filename, 'public');
+                        $hasilPaths[] = $path;
+                    }
+                }
+
+                // Update atau create media record dengan hasil
+                if (!empty($hasilPaths)) {
+                    $media = $service->media()->first();
+
+                    if ($media) {
+                        // Merge dengan hasil lama jika ada
+                        $existingHasil = $media->hasil ?? [];
+                        $allHasil = array_merge($existingHasil, $hasilPaths);
+                        $media->update(['hasil' => $allHasil]);
+                    } else {
+                        // Buat media baru jika belum ada
+                        Media::create([
+                            'service_id' => $id,
+                            'hasil' => $hasilPaths,
+                        ]);
+                    }
+                }
+            }
 
             // validasi status
             if ($request->serviceStatus) {
-                $valid = ['OPEN','PROGRESS','SOLVED','WARRANTY','DONE','CANCELLED'];
+                $valid = ['OPEN', 'PROGRESS', 'SOLVED', 'WARRANTY', 'DONE', 'CANCELLED'];
                 if (!in_array($request->serviceStatus, $valid)) {
                     return response()->json(['error' => 'Invalid serviceStatus'], 400);
                 }
@@ -145,24 +192,20 @@ class ServiceController extends Controller
 
                 // 🔹 Integrasi PDF sesuai flow FE React
                 if ($request->serviceStatus === 'SOLVED') {
+                    // Generate PDF UPDATE
                     app(\App\Http\Controllers\PdfLogController::class)
-                        ->sendServicePdf(new Request([
-                            'service_id' => $service->id,
-                            'type' => 'UPDATE',
-                        ]));
+                        ->generatePdf($service->id, 'UPDATE');
                 }
 
                 if ($request->serviceStatus === 'WARRANTY') {
+                    // Generate PDF INVOICE
                     app(\App\Http\Controllers\PdfLogController::class)
-                        ->sendServicePdf(new Request([
-                            'service_id' => $service->id,
-                            'type' => 'INVOICE',
-                        ]));
+                        ->generatePdf($service->id, 'INVOICE');
                 }
             }
 
             // reload relasi
-            $service->load(['customer','media','items']);
+            $service->load(['customer', 'media', 'items']);
 
             // format rupiah
             $formatted = [
@@ -182,17 +225,170 @@ class ServiceController extends Controller
                 'serviceStatus' => $service->serviceStatus,
             ];
 
-            return response()->json($formatted, 200);
+            if (request()->wantsJson()) {
+                return response()->json($formatted, 201);
+            } else {
+                return redirect()->route('admin.dashboard')->with('success', 'Service berhasil dibuat!');
+            }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error updateService: '.$e->getMessage()], 500);
+            if (request()->wantsJson()) {
+                return response()->json(['error' => 'Error createServiceByAdmin: ' . $e->getMessage()], 500);
+            } else {
+                return redirect()->back()->with('error', 'Gagal membuat service: ' . $e->getMessage())->withInput();
+            }
         }
     }
 
-    public function edit($id)
+    // 🧩 Edit Service View (teknisi)
+    public function updateTeknisi(Request $request, $id)
     {
-        $service = Service::with(['customer','media','items'])->findOrFail($id);
+        try {
+            $service = Service::with(['customer', 'items'])->find($id);
+
+            if (!$service) {
+                return response()->json(['error' => 'Service tidak ditemukan'], 404);
+            }
+
+            if (in_array($service->serviceStatus, ['DONE', 'CANCELLED'])) {
+                return response()->json(['error' => 'Service sudah selesai / dibatalkan, tidak bisa diupdate.'], 400);
+            }
+
+            // parse garansi
+            $parsedGaransi = $request->garansi ? $this->parseDateFlexible($request->garansi) : $service->garansi;
+
+            // update data dasar
+            $service->update([
+                'penyebab' => $request->penyebab ?? $service->penyebab,
+                'kerusakan' => $request->kerusakan ?? $service->kerusakan,
+                'penyelesaian' => $request->penyelesaian ?? $service->penyelesaian,
+                'partUsed' => $request->partUsed ?? $service->partUsed,
+                'garansi' => $parsedGaransi,
+                'judulJasa' => $request->judulJasa ?? $service->judulJasa,
+                'hargaJasa' => $request->hargaJasa ? floatval($request->hargaJasa) : $service->hargaJasa,
+            ]);
+
+            // barangList
+            $totalBarang = 0;
+            if ($request->has('barangList') && is_array($request->barangList)) {
+                ServiceItem::where('service_id', $id)->delete();
+
+                foreach ($request->barangList as $item) {
+                    if (!isset($item['judulBarang'])) continue;
+
+                    ServiceItem::create([
+                        'service_id' => $id,
+                        'judulBarang' => $item['judulBarang'],
+                        'hargaBarang' => floatval($item['hargaBarang'] ?? 0),
+                    ]);
+                }
+
+                $totalBarang = collect($request->barangList)->sum(fn($b) => floatval($b['hargaBarang'] ?? 0));
+            } else {
+                $totalBarang = $service->items->sum('hargaBarang');
+            }
+
+            $total = $totalBarang + ($service->hargaJasa ?? 0);
+            $service->update(['total' => $total]);
+            if ($request->hasFile('hasil')) {
+                $hasilPaths = [];
+                $files = $request->file('hasil');
+
+                foreach ($files as $file) {
+                    if ($file->isValid()) {
+                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $path = $file->storeAs('services/hasil', $filename, 'public');
+                        $hasilPaths[] = $path;
+                    }
+                }
+
+                // Update atau create media record dengan hasil
+                if (!empty($hasilPaths)) {
+                    $media = $service->media()->first();
+
+                    if ($media) {
+                        // Merge dengan hasil lama jika ada
+                        $existingHasil = $media->hasil ?? [];
+                        $allHasil = array_merge($existingHasil, $hasilPaths);
+                        $media->update(['hasil' => $allHasil]);
+                    } else {
+                        // Buat media baru jika belum ada
+                        Media::create([
+                            'service_id' => $id,
+                            'hasil' => $hasilPaths,
+                        ]);
+                    }
+                }
+            }
+
+            // validasi status
+            if ($request->serviceStatus) {
+                $valid = ['OPEN', 'PROGRESS', 'SOLVED', 'WARRANTY', 'DONE', 'CANCELLED'];
+                if (!in_array($request->serviceStatus, $valid)) {
+                    return response()->json(['error' => 'Invalid serviceStatus'], 400);
+                }
+                $service->update(['serviceStatus' => $request->serviceStatus]);
+
+                // 🔹 Integrasi PDF sesuai flow FE React
+                if ($request->serviceStatus === 'SOLVED') {
+                    // Generate PDF UPDATE
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->generatePdf($service->id, 'UPDATE');
+                }
+
+                if ($request->serviceStatus === 'WARRANTY') {
+                    // Generate PDF INVOICE
+                    app(\App\Http\Controllers\PdfLogController::class)
+                        ->generatePdf($service->id, 'INVOICE');
+                }
+            }
+
+            // reload relasi
+            $service->load(['customer', 'media', 'items']);
+
+            // format rupiah
+            $formatted = [
+                'id' => $service->id,
+                'customer' => $service->customer,
+                'media' => $service->media,
+                'items' => $service->items->map(fn($b) => [
+                    'id' => $b->id,
+                    'judulBarang' => $b->judulBarang,
+                    'hargaBarang' => $b->hargaBarang,
+                    'hargaBarangFormatted' => $this->formatRupiah($b->hargaBarang),
+                ]),
+                'hargaJasa' => $service->hargaJasa,
+                'hargaJasaFormatted' => $this->formatRupiah($service->hargaJasa),
+                'total' => $service->total,
+                'totalFormatted' => $this->formatRupiah($service->total),
+                'serviceStatus' => $service->serviceStatus,
+            ];
+
+            if (request()->wantsJson()) {
+                return response()->json($formatted, 201);
+            } else {
+                return redirect()->route('teknisi.dashboard')->with('success', 'Service berhasil dibuat!');
+            }
+        } catch (\Exception $e) {
+            if (request()->wantsJson()) {
+                return response()->json(['error' => 'Error createServiceByAdmin: ' . $e->getMessage()], 500);
+            } else {
+                return redirect()->back()->with('error', 'Gagal membuat service: ' . $e->getMessage())->withInput();
+            }
+        }
+    }
+
+    public function editAdmin($id)
+    {
+        $service = Service::with(['customer', 'media', 'items'])->findOrFail($id);
 
         return view('admin.update-service', compact('service'));
+    }
+
+    public function teknisiEdit($id)
+    {
+        $service = Service::with(['customer', 'media', 'items'])->findOrFail($id);
+
+        return view('teknisi.update-service', compact('service'));
     }
 
     // 🧩 Get Services (optional filter by status)
@@ -200,10 +396,10 @@ class ServiceController extends Controller
     {
         try {
             $status = $request->query('status');
-            $query = Service::with(['customer','media','items'])->orderBy('created_at','desc');
+            $query = Service::with(['customer', 'media', 'items'])->orderBy('created_at', 'desc');
 
             if ($status) {
-                $valid = ['OPEN','PROGRESS','SOLVED','WARRANTY','DONE','CANCELLED'];
+                $valid = ['OPEN', 'PROGRESS', 'SOLVED', 'WARRANTY', 'DONE', 'CANCELLED'];
                 if (!in_array($status, $valid)) {
                     return response()->json(['error' => 'Invalid status'], 400);
                 }
@@ -217,11 +413,31 @@ class ServiceController extends Controller
         }
     }
 
+    public function finishWarranty($id)
+    {
+        $service = Service::findOrFail($id);
+
+        // Pastikan hanya dari WARRANTY
+        if ($service->serviceStatus !== 'WARRANTY') {
+            return back()->with('error', 'Status tidak valid');
+        }
+
+        $service->update([
+            'serviceStatus' => 'DONE',
+            'warranty_finished_at' => now(), // opsional
+        ]);
+
+        return redirect()
+            ->route('admin.dashboard')
+            ->with('success', 'Garansi selesai, status berubah ke DONE');
+    }
+
+
     // Utils
     private function formatRupiah($value)
     {
         if ($value === null || $value === '') return '-';
-        return 'Rp '.number_format($value, 0, ',', '.');
+        return 'Rp ' . number_format($value, 0, ',', '.');
     }
 
     // Generate unique 8 digit memberID
@@ -279,7 +495,7 @@ class ServiceController extends Controller
     private function parseDateFlexible($input)
     {
         if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $input)) {
-            [$dd,$mm,$yyyy] = explode('/', $input);
+            [$dd, $mm, $yyyy] = explode('/', $input);
             return \Carbon\Carbon::createFromDate($yyyy, $mm, $dd);
         }
         try {

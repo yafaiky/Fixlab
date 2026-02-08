@@ -13,7 +13,7 @@
                         </div>
                         <h1 class="text-lg font-semibold text-gray-900">Update Service</h1>
                     </div>
-                    <a href="{{ route('admin.dashboard') }}"
+                    <a href="{{ route('teknisi.dashboard') }}"
                        class="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 text-xs font-medium border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -75,7 +75,7 @@
             </div>
 
             {{-- FORM --}}
-            <form action="{{ route('admin.update', $service->id) }}" method="POST" enctype="multipart/form-data" class="px-5 py-5">
+            <form action="{{ route('teknisi.update', $service->id) }}" method="POST" enctype="multipart/form-data" class="px-5 py-5">
                 @csrf
                 @method('PATCH')
 
@@ -112,7 +112,7 @@
                             </h3>
                         </div>
                         <div class="p-4">
-                            @include('admin.partials.form-progress')
+                            @include('teknisi.partials.form-progress')
                         </div>
                     </div>
 
@@ -127,7 +127,7 @@
                             </h3>
                         </div>
                         <div class="p-4">
-                            @include('admin.partials.form-solved')
+                            @include('teknisi.partials.form-solved')
                         </div>
                     </div>
 
@@ -142,7 +142,7 @@
                             </h3>
                         </div>
                         <div class="p-4">
-                            @include('admin.partials.form-warranty')
+                            @include('teknisi.partials.form-warranty')
                         </div>
                     </div>
                 </div>

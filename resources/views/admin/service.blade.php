@@ -1,5 +1,5 @@
 <x-admin-layout>
-    <div x-data="{ step: 1 }" class="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200">
+    <div x-data="{ step: 1 }" class="w-full mx-auto bg-white rounded-lg shadow-sm border border-gray-200">
 
         {{-- HEADER --}}
         <div class="border-b border-gray-200 px-6 py-4">
@@ -39,7 +39,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">No HP</label>
-                        <input name="phone" type="tel" class="w-full border border-gray-300 px-3 py-2 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <input name="phone" type="number" class="w-full border border-gray-300 px-3 py-2 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
@@ -95,11 +95,12 @@
                     {{-- SIGNATURE CANVAS --}}
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Tanda Tangan Customer</label>
-                        <div class="border border-gray-300 rounded-md p-2 bg-gray-50">
-                            <canvas id="signatureCanvas" width="400" height="150"
-                                class="border border-gray-200 bg-white cursor-crosshair w-full rounded"></canvas>
+                        <div class="inline-flex border border-gray-300 rounded-md p-2 bg-gray-50">
+                            <canvas id="signatureCanvas"
+                                class="w-auto h-[150px] border border-gray-200 bg-white cursor-crosshair rounded"></canvas>
                             <input type="hidden" name="signature" id="signatureInput">
                         </div>
+                        <br>
                         <button type="button" onclick="clearSignature()"
                             class="mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
                             Hapus Tanda Tangan

@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-Schema::create('service_items', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('service_id')->constrained()->onDelete('cascade');
-    $table->string('judulBarang');
-    $table->float('hargaBarang');
-    $table->timestamps();
-});
+        Schema::create('service_items', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('service_id')->constrained()->onDelete('cascade');
+            $table->string('judulBarang');
+            $table->float('hargaBarang');
+            $table->timestamps();
+        });
     }
 
     /**

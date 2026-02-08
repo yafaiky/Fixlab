@@ -9,7 +9,6 @@
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <link rel="icon" href="{{ asset('images/icon-fixlab.png') }}" type="image/png">
     <!-- Styles / Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -22,7 +21,7 @@
 
              {{-- Back Button --}}
             <div class="flex justify-start">
-                <a href="{{ route('admin.dashboard') }}"
+                <a href="{{ route('teknisi.dashboard') }}"
                     class="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md border border-gray-200">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
