@@ -19,7 +19,6 @@ class Media extends Model
     protected $casts = [
         'dokumentasi' => 'array',
         'hasil' => 'array',
-        'signature' => 'string',
     ];
 
     public function service()
